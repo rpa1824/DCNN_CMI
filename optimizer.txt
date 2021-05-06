@@ -1,0 +1,48 @@
+#here the optimizer is used
+model.compile(optimizer=Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+
+batch_size = 10
+
+history = model.fit(
+    x = train_batches, 
+    steps_per_epoch=train_batches.samples // batch_size, 
+    epochs=8, 
+    validation_data=valid_batches, 
+    validation_steps=valid_batches.samples // batch_size,
+    verbose=1)
+
+def smooth_curve(points, factor=0.8):
+    smoothed = []
+    for point in points:
+        if smoothed:
+            previous = smoothed[-1]
+            smoothed.append(previous * factor + point * (1 - factor))
+        else:
+            smoothed.append(point)
+    return smoothed
+
+def plot_compare(history, steps=-1):
+    if steps < 0:
+        steps = len(history.history['accuracy'])
+    acc = smooth_curve(history.history['accuracy'][:steps])
+    val_acc = smooth_curve(history.history['val_accuracy'][:steps])
+    loss = smooth_curve(history.history['loss'][:steps])
+    val_loss = smooth_curve(history.history['val_loss'][:steps])
+    
+    plt.figure(figsize=(6, 4))
+    plt.plot(loss, c='#0c7cba', label='Train Loss')
+    plt.plot(val_loss, c='#0f9d58', label='Val Loss')
+    plt.xticks(range(0, len(loss), 5))
+    plt.xlim(0, len(loss))
+    plt.title('Train Loss: %.3f, Val Loss: %.3f' % (loss[-1], val_loss[-1]), fontsize=12)
+    plt.legend()
+    
+    plt.figure(figsize=(6, 4))
+    plt.plot(acc, c='#0c7cba', label='Train Acc')
+    plt.plot(val_acc, c='#0f9d58', label='Val Acc')
+    plt.xticks(range(0, len(acc), 5))
+    plt.xlim(0, len(acc))
+    plt.title('Train Accuracy: %.3f, Val Accuracy: %.3f' % (acc[-1], val_acc[-1]), fontsize=12)
+    plt.legend()
+    
+plot_compare(history)

@@ -1,0 +1,30 @@
+                      
+# plot images in the form of a 1 by 10 grid and resize img to 150*150
+def plotImages(images_arr):
+    fig, axes = plt.subplots(1, 10, figsize=(224,224))
+    axes = axes.flatten()
+    for img, ax in zip( images_arr, axes):
+        ax.imshow(img.astype(np.uint8))
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()    
+
+imgs, labels = next(train_batches)
+plotImages(imgs)
+print(labels)       
+
+model = Sequential()
+model.add(Conv2D(input_shape=(224,224,3),filters=64,kernel_size=(3,3),padding="same", activation="relu"))
+model.add(Conv2D(filters=64,kernel_size=(3,3),padding="same", activation="relu"))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Dropout(0.5))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Dropout(0.5))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Flatten())
+model.summary()
