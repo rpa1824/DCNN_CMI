@@ -1,0 +1,152 @@
+#importing all the librarries
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import BatchNormalization, Conv2D, MaxPool2D, Activation, Dense, Flatten, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.metrics import categorical_crossentropy
+from sklearn.metrics import confusion_matrix
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+import numpy as np
+import os
+import itertools
+import random
+
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+#Defining the path data set
+train_path = r'C:/Users/raja/Desktop/New folder/cyclone model/data/training'
+valid_path = r'C:/Users/raja/Desktop/New folder/cyclone model/data/validating'
+test_path = r'C:/Users/raja/Desktop/New folder/cyclone model/data/testing'
+
+# Generating the data to the program
+train_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input).flow_from_directory(directory=train_path,
+                                                                                                                            target_size=(224,224),
+                                                                                                                            classes=['cyclone', 'not_cyclone'],
+                                                                                                                            batch_size=10, shuffle = True)
+valid_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input).flow_from_directory(directory=valid_path,
+                                                                                                                            target_size=(224,224),
+                                                                                                                            classes=['cyclone', 'not_cyclone'],
+                                                                                                                            batch_size=10, shuffle = True)
+test_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input).flow_from_directory(directory=test_path, target_size=(224,224),
+                                                                                                                           classes=['cyclone', 'not_cyclone'],
+                      
+# plot images in the form of a 1 by 10 grid and resize img to 150*150
+def plotImages(images_arr):
+    fig, axes = plt.subplots(1, 10, figsize=(224,224))
+    axes = axes.flatten()
+    for img, ax in zip( images_arr, axes):
+        ax.imshow(img.astype(np.uint8))
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()    
+
+imgs, labels = next(train_batches)
+plotImages(imgs)
+print(labels)       
+
+model = Sequential()
+model.add(Conv2D(input_shape=(224,224,3),filters=64,kernel_size=(3,3),padding="same", activation="relu"))
+model.add(Conv2D(filters=64,kernel_size=(3,3),padding="same", activation="relu"))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Dropout(0.5))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Conv2D(filters=256, kernel_size=(3,3), padding="same", activation="relu"))
+model.add(Dropout(0.5))
+model.add(MaxPool2D(pool_size=(2,2),strides=(2,2)))
+model.add(Flatten())
+model.summary()
+
+#here the optimizer is used
+model.compile(optimizer=Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+
+batch_size = 10
+
+history = model.fit(
+    x = train_batches, 
+    steps_per_epoch=train_batches.samples // batch_size, 
+    epochs=8, 
+    validation_data=valid_batches, 
+    validation_steps=valid_batches.samples // batch_size,
+    verbose=1)
+
+def smooth_curve(points, factor=0.8):
+    smoothed = []
+    for point in points:
+        if smoothed:
+            previous = smoothed[-1]
+            smoothed.append(previous * factor + point * (1 - factor))
+        else:
+            smoothed.append(point)
+    return smoothed
+
+def plot_compare(history, steps=-1):
+    if steps < 0:
+        steps = len(history.history['accuracy'])
+    acc = smooth_curve(history.history['accuracy'][:steps])
+    val_acc = smooth_curve(history.history['val_accuracy'][:steps])
+    loss = smooth_curve(history.history['loss'][:steps])
+    val_loss = smooth_curve(history.history['val_loss'][:steps])
+    
+    plt.figure(figsize=(6, 4))
+    plt.plot(loss, c='#0c7cba', label='Train Loss')
+    plt.plot(val_loss, c='#0f9d58', label='Val Loss')
+    plt.xticks(range(0, len(loss), 5))
+    plt.xlim(0, len(loss))
+    plt.title('Train Loss: %.3f, Val Loss: %.3f' % (loss[-1], val_loss[-1]), fontsize=12)
+    plt.legend()
+    
+    plt.figure(figsize=(6, 4))
+    plt.plot(acc, c='#0c7cba', label='Train Acc')
+    plt.plot(val_acc, c='#0f9d58', label='Val Acc')
+    plt.xticks(range(0, len(acc), 5))
+    plt.xlim(0, len(acc))
+    plt.title('Train Accuracy: %.3f, Val Accuracy: %.3f' % (acc[-1], val_acc[-1]), fontsize=12)
+    plt.legend()
+    
+plot_compare(history)
+
+# making predictions
+predictions = model.predict(x = test_batches, verbose=1)
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+        
+        
+    print(cm)
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, cm[i, j],
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+            
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
+cm = confusion_matrix(y_true=test_batches.classes, y_pred=np.argmax(predictions, axis=-1))
+plot_confusion_matrix(cm, classes = ['cyclone', 'no_cyclone'])
+                       
